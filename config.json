@@ -1,0 +1,70 @@
+{
+  "_catatan": "LAYOUT FINAL/TERKUNCI (revisi terakhir disetujui user 2026-05-30). box = [x, y, lebar, tinggi] piksel pada kanvas 1080x1080. fit_mode: 'fixed' = ukuran font tetap (teks pendek tidak membesar, hanya mengecil bila terlalu lebar), 'shrink' = ukuran menyesuaikan tinggi box (untuk teks panjang seperti deskripsi). Untuk mode 'fixed', max_font = ukuran tetapnya. Jangan ubah angka kecuali diminta user.",
+  "template": "20260114_162748.png",
+  "output_dir": "output",
+  "output_size": [1080, 1080],
+  "default_font": "Helvetica.ttf",
+
+  "fields": {
+    "posisi": {
+      "box": [88, 189, 900, 220],
+      "font": "coolvetica rg.otf",
+      "fit_mode": "fixed",
+      "max_font": 85,
+      "min_font": 50,
+      "color": "#FFFFFF",
+      "align": "center",
+      "valign": "middle",
+      "case": "upper",
+      "line_spacing": 1
+    },
+    "lokasi": {
+      "box": [88, 351, 900, 90],
+      "font": "coolvetica rg.otf",
+      "fit_mode": "fixed",
+      "max_font": 60,
+      "min_font": 26,
+      "color": "#FFFFFF",
+      "align": "center",
+      "valign": "middle",
+      "case": "title",
+      "line_spacing": 1.05
+    },
+    "perusahaan": {
+      "box": [88, 495, 900, 110],
+      "font": "coolvetica rg.otf",
+      "fit_mode": "fixed",
+      "max_font": 60,
+      "min_font": 30,
+      "color": "#FFFFFF",
+      "align": "center",
+      "valign": "middle",
+      "case": "title",
+      "line_spacing": 1.05
+    },
+    "deskripsi": {
+      "box": [88, 599, 901, 70],
+      "font": "Helvetica.ttf",
+      "fit_mode": "shrink",
+      "max_font": 30,
+      "min_font": 10,
+      "color": "#FFFFFF",
+      "align": "center",
+      "valign": "top",
+      "case": "title",
+      "line_spacing": 1.3
+    },
+    "kontak": {
+      "box": [88, 618, 900, 80],
+      "font": "Helvetica.ttf",
+      "fit_mode": "fixed",
+      "max_font": 30,
+      "min_font": 20,
+      "color": "#FFFFFF",
+      "align": "center",
+      "valign": "middle",
+      "case": "lower",
+      "line_spacing": 1.1
+    }
+  }
+}

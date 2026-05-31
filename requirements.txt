@@ -1,0 +1,10 @@
+# Fase 1 - Generator poster + Web Editor
+Pillow>=10.0.0
+Flask>=3.0.0
+
+# Produksi (server cloud)
+gunicorn>=21.2.0
+
+# Fase berikutnya (belum dipakai, catatan saja):
+# python-telegram-bot>=21.0   # bot Telegram konfirmasi
+# requests>=2.31.0            # sumber data & Instagram Graph API

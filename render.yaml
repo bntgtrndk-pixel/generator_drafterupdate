@@ -1,0 +1,14 @@
+# Konfigurasi deploy untuk Render.com (https://render.com)
+# Cukup hubungkan repo GitHub ke Render, file ini terbaca otomatis.
+services:
+  - type: web
+    name: loker-drafter
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: EDITOR_LOCKED
+        value: "1"
+      - key: PYTHON_VERSION
+        value: "3.12.10"

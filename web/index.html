@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Loker Drafter - Editor</title>
+  <link rel="stylesheet" href="/web/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">LD</span>
+      <div>
+        <h1>Loker Drafter</h1>
+        <p>Editor poster lowongan kerja</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="btnSave" class="btn btn-ghost" title="Simpan posisi & gaya ke config.json">Simpan Layout</button>
+      <button id="btnDownload" class="btn btn-primary" title="Render & simpan poster ke folder output">Generate PNG</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- PREVIEW -->
+    <section class="preview-pane">
+      <div class="preview-wrap" id="previewWrap">
+        <img id="previewImg" alt="Preview poster" draggable="false" />
+        <div id="boxLayer" class="box-layer"></div>
+      </div>
+      <p class="hint" id="statusMsg">Ketuk salah satu kotak untuk memilih, seret untuk geser, tarik pojok kanan-bawah untuk ubah ukuran.</p>
+      <label class="overlay-toggle">
+        <input type="checkbox" id="toggleBoxes" checked /> Tampilkan kotak panduan
+      </label>
+
+    </section>
+
+    <!-- PANEL -->
+    <aside class="panel">
+      <div class="tabs">
+        <button class="tab active" data-tab="isi">Isi Loker</button>
+        <button class="tab" data-tab="atur">Atur Teks</button>
+      </div>
+
+      <!-- TAB: ISI LOKER -->
+      <div class="tab-body" id="tab-isi">
+        <label>Nama Posisi
+          <input type="text" data-field="posisi" />
+        </label>
+        <label>Lokasi Penempatan
+          <input type="text" data-field="lokasi" />
+        </label>
+        <label>Nama Perusahaan
+          <input type="text" data-field="perusahaan" />
+        </label>
+        <label>Deskripsi Singkat
+          <textarea data-field="deskripsi" rows="3"></textarea>
+        </label>
+        <label>Kontak (email / WA)
+          <input type="text" data-field="kontak" />
+        </label>
+
+        <div class="loker-nav">
+          <button id="prevLoker" class="btn btn-ghost">‹ Sebelumnya</button>
+          <span id="lokerCounter">1 / 1</span>
+          <button id="nextLoker" class="btn btn-ghost">Berikutnya ›</button>
+        </div>
+        <button id="saveLokers" class="btn btn-block btn-ghost">Simpan Data Loker</button>
+      </div>
+
+      <!-- TAB: ATUR TEKS -->
+      <div class="tab-body" id="tab-atur" hidden>
+        <label>Pilih field
+          <select id="fieldSelect"></select>
+        </label>
+
+        <div class="grid2">
+          <label>X <input type="number" id="boxX" /></label>
+          <label>Y <input type="number" id="boxY" /></label>
+          <label>Lebar <input type="number" id="boxW" /></label>
+          <label>Tinggi <input type="number" id="boxH" /></label>
+        </div>
+
+        <label>Mode Ukuran Font
+          <select id="fitMode">
+            <option value="fixed">Tetap (teks pendek tidak membesar)</option>
+            <option value="shrink">Menyusut (muat di kotak, untuk teks panjang)</option>
+          </select>
+        </label>
+
+        <div class="grid2">
+          <label><span id="lblMaxFont">Ukuran Font</span> <input type="number" id="maxFont" /></label>
+          <label>Ukuran Min <input type="number" id="minFont" /></label>
+        </div>
+
+
+        <label>Warna teks
+          <span class="color-row">
+            <input type="color" id="colorPick" />
+            <input type="text" id="colorHex" maxlength="7" />
+          </span>
+        </label>
+
+        <div class="grid2">
+          <label>Rata Horizontal
+            <select id="alignSel">
+              <option value="left">Kiri</option>
+              <option value="center">Tengah</option>
+              <option value="right">Kanan</option>
+            </select>
+          </label>
+          <label>Rata Vertikal
+            <select id="valignSel">
+              <option value="top">Atas</option>
+              <option value="middle">Tengah</option>
+              <option value="bottom">Bawah</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid2">
+          <label>Kapitalisasi
+            <select id="caseSel">
+              <option value="none">Apa adanya</option>
+              <option value="upper">HURUF BESAR</option>
+              <option value="lower">huruf kecil</option>
+              <option value="title">Tiap Kata</option>
+            </select>
+          </label>
+          <label>Jarak Baris <input type="number" step="0.05" id="lineSpacing" /></label>
+        </div>
+
+        <label>Font
+          <select id="fontSel">
+            <option value="coolvetica rg.otf">Coolvetica RG</option>
+            <option value="Helvetica.ttf">Helvetica</option>
+          </select>
+        </label>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/web/app.js"></script>
+</body>
+</html>

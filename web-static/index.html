@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Loker Drafter - Generator Poster</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">LD</span>
+      <div>
+        <h1>Loker Drafter</h1>
+        <p>Generator poster lowongan kerja</p>
+      </div>
+    </div>
+    <button id="btnDownload" class="btn btn-primary">Unduh PNG</button>
+  </header>
+
+  <main class="layout">
+    <section class="preview-pane">
+      <div class="preview-wrap" id="previewWrap">
+        <canvas id="canvas" width="1080" height="1080"></canvas>
+      </div>
+      <p class="hint" id="statusMsg">Isi data di samping, poster otomatis ter-update.</p>
+    </section>
+
+    <aside class="panel">
+      <h2 class="panel-title">Isi Data Loker</h2>
+      <label>Nama Posisi
+        <input type="text" data-field="posisi" placeholder="cth: Drafter Arsitektur" />
+      </label>
+      <label>Lokasi Penempatan
+        <input type="text" data-field="lokasi" placeholder="cth: Jakarta Selatan" />
+      </label>
+      <label>Nama Perusahaan
+        <input type="text" data-field="perusahaan" placeholder="cth: PT Maju Bersama" />
+      </label>
+      <label>Deskripsi Singkat
+        <textarea data-field="deskripsi" rows="3" placeholder="cth: Min D3 Teknik Sipil, mahir AutoCAD..."></textarea>
+      </label>
+      <label>Kontak (email / WA)
+        <input type="text" data-field="kontak" placeholder="cth: hrd@perusahaan.com" />
+      </label>
+
+      <button id="btnDownload2" class="btn btn-primary btn-block">Unduh PNG (1080x1080)</button>
+      <button id="btnReset" class="btn btn-ghost btn-block">Kosongkan</button>
+
+      <p class="note">Tip: di HP, setelah unduh, gambar tersimpan di galeri/Downloads dan siap diposting ke Instagram.</p>
+    </aside>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
