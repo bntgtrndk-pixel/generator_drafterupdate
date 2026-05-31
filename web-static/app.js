@@ -199,58 +199,98 @@ function download() {
 }
 
 // ---------- auto-parse teks loker -> 5 field ----------
+// Parser berbasis pola (rule-based). Mendukung format Inggris & Indonesia,
+// postingan terstruktur maupun pesan singkat dari HRD.
+function cleanVal(s) {
+  return String(s || "")
+    .replace(/[\*_`>#]/g, "")          // buang simbol markdown
+    .replace(/\s+/g, " ")
+    .replace(/^[\s:\-–—]+|[\s:\-–—.,;]+$/g, "")
+    .trim();
+}
+
 function parseLoker(text) {
   const out = { posisi: "", lokasi: "", perusahaan: "", deskripsi: "", kontak: "" };
   const raw = String(text).replace(/\r/g, "");
   const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l.length);
+  const isID = /\b(dibutuhkan|lowongan|perusahaan|penempatan|lamaran|kirim|melamar|persyaratan|kualifikasi|gaji|domisili)\b/i.test(raw);
 
-  // KONTAK: email dulu, kalau tidak ada cari nomor WA
+  // ---------- KONTAK: email diutamakan, lalu nomor WA ----------
   const email = raw.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
   if (email) {
     out.kontak = email[0];
   } else {
-    const wa = raw.match(/(?:\+?62|0)\s?8[0-9][0-9\s-]{6,13}[0-9]/);
-    if (wa) out.kontak = wa[0].replace(/[\s-]/g, "");
+    const wa = raw.match(/(?:\+?62|0)\s?8[0-9][0-9\s().-]{6,15}[0-9]/);
+    if (wa) out.kontak = wa[0].replace(/[\s().-]/g, "");
   }
 
-  // LOKASI: baris "Location/Lokasi/Penempatan/Domisili : xxx"
-  const loc = raw.match(/(?:lokasi(?:\s*penempatan)?|location|penempatan|domisili|placement)\s*[:\-]\s*(.+)/i);
-  if (loc) out.lokasi = loc[1].split(/[\n.,;|]/)[0].trim();
+  // ---------- LOKASI ----------
+  // 1) berlabel + titik dua/strip
+  let loc = raw.match(/(?:lokasi(?:\s*penempatan|\s*kerja)?|location|penempatan|domisili|placement|area|wilayah|kota)\s*[:\-]\s*(.+)/i);
+  // 2) inline tanpa titik dua: "penempatan/di/in Jakarta" (hanya tangkap nama kota berkapital)
+  if (!loc) loc = raw.match(/(?:penempatan|berlokasi di|lokasi di|di area|\bin)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,2})(?=[\s.,;\n]|$)/);
+  if (loc) out.lokasi = cleanVal(loc[1].split(/[\n.;|]/)[0]).split(/,(?![^()]*\))/)[0].trim();
 
-  // PERUSAHAAN: pola "PT/CV/UD/PD Nama ... (sebelum kata kerja/koma)"
-  const comp = raw.match(/\b((?:PT|CV|UD|PD)\.?\s+[A-Z][A-Za-z0-9&.\-\s]+?)(?=\s+(?:looking|hiring|currently|is|are|membuka|mencari|sedang|membutuhkan|opening|invites?|seeking|adalah)\b|[\n,.])/);
+
+
+  // ---------- PERUSAHAAN ----------
+  // 1) frasa "at/join/di/bergabung dengan PT X"
+  let comp = raw.match(/\b(?:at|join|with|di|bersama|bergabung dengan)\s+((?:PT|CV|UD|PD|Perum|Koperasi|Yayasan)\.?\s+[A-Z][A-Za-z0-9&.\-' ]+?)(?=[\n,.]| untuk| sebagai| as | is | are | looking|$)/);
+  // 2) "PT X looking/membuka/as/in/untuk ..." (banyak stop-word agar tidak over-grab)
+  if (!comp) comp = raw.match(/\b((?:PT|CV|UD|PD|Perum|Koperasi|Yayasan)\.?\s+[A-Z][A-Za-z0-9&.\-' ]+?)(?=\s+(?:looking|hiring|currently|is|are|as|in|at|untuk|sebagai|membuka|mencari|sedang|membutuhkan|opening|invites?|seeking|adalah|kini|saat ini)\b|[\n,.])/);
+
   if (comp) {
-    out.perusahaan = comp[1].trim().replace(/\s+/g, " ");
+    out.perusahaan = cleanVal(comp[1]);
   } else {
-    const cl = lines.find((l) => /^(PT|CV|UD|PD)\b/i.test(l));
-    if (cl) out.perusahaan = cl.split(/\s+(?:looking|is|are|membuka|mencari|membutuhkan)\b/i)[0].trim();
+    // 3) baris yang diawali PT/CV/dst
+    const cl = lines.find((l) => /^(PT|CV|UD|PD|Perum|Koperasi|Yayasan)\b/i.test(l));
+    if (cl) out.perusahaan = cleanVal(cl.split(/\s+(?:looking|is|are|membuka|mencari|membutuhkan|currently|sedang)\b/i)[0]);
+    // 4) label "Perusahaan/Company : X"
+    if (!out.perusahaan) {
+      const cm = raw.match(/(?:perusahaan|company|nama perusahaan)\s*[:\-]\s*(.+)/i);
+      if (cm) out.perusahaan = cleanVal(cm[1].split(/[\n.;|]/)[0]);
+    }
   }
 
-  // POSISI: 1) dari dalam kurung [ ... - POSISI ]  2) "looking for ... to join"  3) "dibutuhkan/posisi: xxx"
-  const br = raw.match(/\[([^\]]+)\]/);
-  if (br) {
-    let t = br[1];
-    if (t.includes("-")) t = t.split("-").pop();
-    if (t.includes(":")) t = t.split(":").pop();
-    out.posisi = t.trim();
-  }
+  // ---------- POSISI ----------
+  // 1) label tegas: "Posisi/Position/Jabatan/Role : X"
+  let pos = raw.match(/(?:posisi|position|jabatan|role|lowongan(?:\s*untuk)?|dibutuhkan(?:\s*segera)?)\s*[:\-]\s*(.+)/i);
+  if (pos) out.posisi = cleanVal(pos[1].split(/[\n.,;|(]/)[0]);
+  // 2) dari dalam kurung siku [ ... - POSISI ] atau [ POSISI ]
   if (!out.posisi) {
-    const lf = raw.match(/looking for\s+(?:an?\s+)?(?:experienced\s+|several\s+)?(.+?)(?:\s+to join|\.|,)/i);
-    if (lf) out.posisi = lf[1].trim();
+    const br = raw.match(/\[([^\]]+)\]/);
+    if (br) {
+      let t = br[1];
+      if (t.includes("-")) t = t.split("-").pop();
+      if (t.includes(":")) t = t.split(":").pop();
+      out.posisi = cleanVal(t);
+    }
   }
+  // 3) "looking/seeking/hiring for X (to join)"
   if (!out.posisi) {
-    const db = raw.match(/(?:dibutuhkan|membutuhkan|lowongan(?:\s*kerja)?|posisi|vacancy|position|hiring)\s*[:\-]?\s*(.+)/i);
-    if (db) out.posisi = db[1].split(/[\n.,;|]/)[0].trim();
+    const lf = raw.match(/(?:looking|seeking|hiring|searching)\s+for\s+(?:an?\s+)?(?:experienced\s+|several\s+|talented\s+)?(.+?)(?:\s+to join|\s+who|\.|,|\n)/i);
+    if (lf) out.posisi = cleanVal(lf[1]);
   }
-  // bersihkan kata umum dari posisi
-  out.posisi = out.posisi.replace(/^(job\s*vacancy|vacancy|loker|lowongan(?:\s*kerja)?)\s*[-:]\s*/i, "").trim();
+  // 4) "mencari/membutuhkan/dibutuhkan (segera/seorang) X untuk/yang"
+  if (!out.posisi) {
+    const mc = raw.match(/(?:mencari|membutuhkan|dibutuhkan|cari)\s+(?:segera\s+)?(?:seorang\s+|tenaga\s+|beberapa\s+)?(.+?)(?:\s+untuk|\s+yang|\s+di\b|\.|,|\n)/i);
+    if (mc) out.posisi = cleanVal(mc[1]);
+  }
 
-  // DESKRIPSI: bukan requirement panjang, melainkan teks ajakan singkat
-  // di atas kontak. Default "Send your CV to:" (detail dibaca di caption IG).
-  out.deskripsi = "Send your CV to:";
+  // 5) "as a/an X"
+  if (!out.posisi) {
+    const asm = raw.match(/\bas\s+(?:an?\s+)?([A-Z][A-Za-z\/ ]+?)(?:\s+to|\s+at|\s+in|\.|,|\n)/);
+    if (asm) out.posisi = cleanVal(asm[1]);
+  }
+  // bersihkan kata pembuka umum
+  out.posisi = cleanVal(out.posisi.replace(/^(job\s*vacancy|vacancy|loker|lowongan(?:\s*kerja)?|urgently needed|urgent|we are hiring|hiring)\s*[-:]?\s*/i, ""));
+
+  // ---------- DESKRIPSI (teks ajakan singkat, bukan requirement) ----------
+  out.deskripsi = isID ? "Kirim CV ke:" : "Send your CV to:";
 
   return out;
 }
+
 
 
 function applyFields(parsed) {
