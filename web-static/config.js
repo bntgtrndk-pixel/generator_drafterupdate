@@ -36,13 +36,15 @@ window.LOKER_CONFIG = {
     deskripsi: {
       box: [88, 599, 901, 70],
       font: "Helvetica",
-      fit_mode: "shrink",
-      max_font: 30, min_font: 10,
+      fit_mode: "fixed",
+      max_font: 30, min_font: 14,
       color: "#FFFFFF",
       align: "center", valign: "top",
-      case: "title", line_spacing: 1.3,
+      case: "none", line_spacing: 1.2,
     },
+
     kontak: {
+
       box: [88, 618, 900, 80],
       font: "Helvetica",
       fit_mode: "fixed",

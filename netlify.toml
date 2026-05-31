@@ -1,0 +1,6 @@
+# Konfigurasi Netlify untuk Loker Drafter (situs statis + AI parser)
+# - Situs dipublikasikan dari folder web-static
+# - Fungsi serverless (penyimpan API key OpenRouter) di netlify/functions
+[build]
+  publish = "web-static"
+  functions = "netlify/functions"

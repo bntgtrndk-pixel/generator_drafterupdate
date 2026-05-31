@@ -8,9 +8,11 @@ const CFG = window.LOKER_CONFIG;
 const ORDER = window.FIELD_ORDER;
 const CANVAS = CFG.output_size[0]; // 1080
 
+const $ = (sel) => document.querySelector(sel);
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const statusMsg = document.getElementById("statusMsg");
+
 
 let templateImg = null;
 let fontsReady = false;
@@ -196,8 +198,128 @@ function download() {
   }, "image/png");
 }
 
+// ---------- auto-parse teks loker -> 5 field ----------
+function parseLoker(text) {
+  const out = { posisi: "", lokasi: "", perusahaan: "", deskripsi: "", kontak: "" };
+  const raw = String(text).replace(/\r/g, "");
+  const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l.length);
+
+  // KONTAK: email dulu, kalau tidak ada cari nomor WA
+  const email = raw.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+  if (email) {
+    out.kontak = email[0];
+  } else {
+    const wa = raw.match(/(?:\+?62|0)\s?8[0-9][0-9\s-]{6,13}[0-9]/);
+    if (wa) out.kontak = wa[0].replace(/[\s-]/g, "");
+  }
+
+  // LOKASI: baris "Location/Lokasi/Penempatan/Domisili : xxx"
+  const loc = raw.match(/(?:lokasi(?:\s*penempatan)?|location|penempatan|domisili|placement)\s*[:\-]\s*(.+)/i);
+  if (loc) out.lokasi = loc[1].split(/[\n.,;|]/)[0].trim();
+
+  // PERUSAHAAN: pola "PT/CV/UD/PD Nama ... (sebelum kata kerja/koma)"
+  const comp = raw.match(/\b((?:PT|CV|UD|PD)\.?\s+[A-Z][A-Za-z0-9&.\-\s]+?)(?=\s+(?:looking|hiring|currently|is|are|membuka|mencari|sedang|membutuhkan|opening|invites?|seeking|adalah)\b|[\n,.])/);
+  if (comp) {
+    out.perusahaan = comp[1].trim().replace(/\s+/g, " ");
+  } else {
+    const cl = lines.find((l) => /^(PT|CV|UD|PD)\b/i.test(l));
+    if (cl) out.perusahaan = cl.split(/\s+(?:looking|is|are|membuka|mencari|membutuhkan)\b/i)[0].trim();
+  }
+
+  // POSISI: 1) dari dalam kurung [ ... - POSISI ]  2) "looking for ... to join"  3) "dibutuhkan/posisi: xxx"
+  const br = raw.match(/\[([^\]]+)\]/);
+  if (br) {
+    let t = br[1];
+    if (t.includes("-")) t = t.split("-").pop();
+    if (t.includes(":")) t = t.split(":").pop();
+    out.posisi = t.trim();
+  }
+  if (!out.posisi) {
+    const lf = raw.match(/looking for\s+(?:an?\s+)?(?:experienced\s+|several\s+)?(.+?)(?:\s+to join|\.|,)/i);
+    if (lf) out.posisi = lf[1].trim();
+  }
+  if (!out.posisi) {
+    const db = raw.match(/(?:dibutuhkan|membutuhkan|lowongan(?:\s*kerja)?|posisi|vacancy|position|hiring)\s*[:\-]?\s*(.+)/i);
+    if (db) out.posisi = db[1].split(/[\n.,;|]/)[0].trim();
+  }
+  // bersihkan kata umum dari posisi
+  out.posisi = out.posisi.replace(/^(job\s*vacancy|vacancy|loker|lowongan(?:\s*kerja)?)\s*[-:]\s*/i, "").trim();
+
+  // DESKRIPSI: bukan requirement panjang, melainkan teks ajakan singkat
+  // di atas kontak. Default "Send your CV to:" (detail dibaca di caption IG).
+  out.deskripsi = "Send your CV to:";
+
+  return out;
+}
+
+
+// Coba AI (Netlify Function) dulu; jika gagal, pakai parser rule-based.
+async function parseWithAI(text) {
+  const res = await fetch("/.netlify/functions/parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  const j = await res.json();
+  if (!j.ok || !j.fields) throw new Error(j.error || "AI gagal");
+  return j.fields;
+}
+
+function applyFields(parsed) {
+  let filled = 0;
+  document.querySelectorAll("input[data-field], textarea[data-field]").forEach((el) => {
+    const f = el.dataset.field;
+    if (parsed[f]) { el.value = parsed[f]; data[f] = parsed[f]; filled++; }
+  });
+  render();
+  return filled;
+}
+
+async function autoFill() {
+  const text = $("#pasteText").value;
+  const msg = $("#parseMsg");
+  const btn = $("#btnAutoFill");
+  if (!text.trim()) {
+    msg.textContent = "Tempel teks lowongan dulu di kotak atas.";
+    msg.className = "note parse-warn";
+    return;
+  }
+
+  btn.disabled = true;
+  msg.textContent = "Memproses dengan AI...";
+  msg.className = "note";
+
+  let parsed = null;
+  let usedAI = false;
+  try {
+    parsed = await parseWithAI(text);
+    usedAI = true;
+  } catch (e) {
+    parsed = parseLoker(text); // fallback rule-based
+  }
+
+  applyFields(parsed);
+  btn.disabled = false;
+
+  const empty = ORDER.filter((f) => !parsed[f]);
+  const tag = usedAI ? "AI" : "mode dasar (AI tdk tersedia)";
+  if (empty.length === 0) {
+    msg.textContent = `Terisi otomatis via ${tag}. Cek & rapikan bila perlu, lalu Unduh PNG.`;
+    msg.className = "note parse-ok";
+  } else {
+    const labels = empty.map((f) => FIELD_LABELS[f]).join(", ");
+    msg.textContent = `Via ${tag}. Belum kebaca: ${labels} — isi/perbaiki manual ya.`;
+    msg.className = "note parse-warn";
+  }
+}
+
+
 // ---------- events ----------
 function bind() {
+  const auto = document.getElementById("btnAutoFill");
+  if (auto) auto.addEventListener("click", autoFill);
+
+
   document.querySelectorAll("[data-field]").forEach((el) => {
     el.addEventListener("input", () => {
       data[el.dataset.field] = el.value;

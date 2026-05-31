@@ -27,7 +27,19 @@
     </section>
 
     <aside class="panel">
-      <h2 class="panel-title">Isi Data Loker</h2>
+      <div class="paste-box">
+        <h2 class="panel-title">Cara 1 — Tempel &amp; Otomatis</h2>
+        <label>Tempel teks loker (dari LinkedIn / HRD)
+          <textarea id="pasteText" rows="5" placeholder="Tempel 1 paragraf lowongan di sini, lalu klik Isi Otomatis..."></textarea>
+        </label>
+        <button id="btnAutoFill" class="btn btn-auto btn-block">✨ Isi Otomatis</button>
+        <p class="note" id="parseMsg"></p>
+      </div>
+      <hr class="divider" />
+
+      <h2 class="panel-title">Cara 2 — Cek &amp; Koreksi Manual</h2>
+      <p class="note">Hasil otomatis muncul di kolom bawah ini. Periksa &amp; perbaiki bila ada yang keliru. Bisa juga diisi manual langsung (mis. loker dari HRD yang singkat).</p>
+
       <label>Nama Posisi
         <input type="text" data-field="posisi" placeholder="cth: Drafter Arsitektur" />
       </label>
@@ -37,9 +49,10 @@
       <label>Nama Perusahaan
         <input type="text" data-field="perusahaan" placeholder="cth: PT Maju Bersama" />
       </label>
-      <label>Deskripsi Singkat
-        <textarea data-field="deskripsi" rows="3" placeholder="cth: Min D3 Teknik Sipil, mahir AutoCAD..."></textarea>
+      <label>Teks Ajakan (di atas kontak)
+        <input type="text" data-field="deskripsi" placeholder="cth: Send your CV to:" />
       </label>
+
       <label>Kontak (email / WA)
         <input type="text" data-field="kontak" placeholder="cth: hrd@perusahaan.com" />
       </label>

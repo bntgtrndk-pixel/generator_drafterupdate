@@ -72,6 +72,16 @@ input:focus, textarea:focus { outline: none; border-color: var(--accent); }
 textarea { resize: vertical; }
 .note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
 
+.paste-box { display: flex; flex-direction: column; gap: 10px; }
+.btn-auto {
+  background: linear-gradient(135deg, #8a5cff, var(--accent));
+  border: none; color: #fff;
+}
+.divider { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
+.parse-ok { color: #58d18b; }
+.parse-warn { color: #ffce5a; }
+
+
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }
   .preview-wrap { max-width: 92vw; }
