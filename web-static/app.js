@@ -263,14 +263,58 @@ function extractCompany(raw) {
   return "";
 }
 
+// Daftar kota umum (untuk ambil NAMA KOTA saja, bukan kecamatan/provinsi).
+const CITY_PATTERNS = [
+  /Jakarta(?:\s+(?:Barat|Timur|Selatan|Utara|Pusat))?/i,
+  /Tangerang(?:\s+Selatan)?/i, /Bandung/i, /Surabaya/i, /Semarang/i,
+  /Yogyakarta/i, /Medan/i, /Makassar/i, /Palembang/i, /Bekasi/i, /Depok/i,
+  /Bogor/i, /Cilegon/i, /Serang/i, /Denpasar/i, /Malang/i, /Batam/i,
+  /Pekanbaru/i, /Balikpapan/i, /Samarinda/i, /Banjarmasin/i, /Pontianak/i,
+  /Manado/i, /Padang/i, /Bandar Lampung/i, /Lampung/i, /Cikarang/i,
+  /Karawang/i, /Cirebon/i, /Surakarta/i, /Solo/i, /Sidoarjo/i, /Gresik/i,
+  /Kudus/i, /Cibitung/i, /Purwakarta/i, /Sukabumi/i, /Tasikmalaya/i,
+  /Jember/i, /Kediri/i, /Mojokerto/i, /Pasuruan/i, /Cilacap/i, /Tegal/i,
+];
+// Alias slang -> nama kota baku.
+const CITY_ALIAS = {
+  tangsel: "Tangerang Selatan", jaksel: "Jakarta Selatan", jaktim: "Jakarta Timur",
+  jakbar: "Jakarta Barat", jakut: "Jakarta Utara", jakpus: "Jakarta Pusat",
+  jabodetabek: "Jabodetabek", jogja: "Yogyakarta", jogjakarta: "Yogyakarta",
+  bdg: "Bandung", sby: "Surabaya",
+};
+
+// Dari sebuah string lokasi mentah, kembalikan NAMA KOTA-nya saja.
+function resolveCity(locStr) {
+  const s = cleanVal(locStr);
+  if (!s) return "";
+  // 1) alias slang
+  const key = s.toLowerCase().replace(/[^a-z]/g, "");
+  if (CITY_ALIAS[key]) return CITY_ALIAS[key];
+  // 2) cocokkan kota yang dikenal
+  for (const re of CITY_PATTERNS) {
+    const mm = s.match(re);
+    if (mm) return niceCase(mm[0]);
+  }
+  // 3) ada pemisah "-" (kecamatan - kota) -> ambil bagian setelah strip
+  if (s.includes("-")) return niceCase(s.split("-").pop());
+  // 4) terakhir: ambil maksimal 2 kata pertama (hindari kalimat panjang)
+  return niceCase(s.split(" ").slice(0, 2).join(" "));
+}
+
 // Ambil lokasi/kota (nama berkapital agar tidak salah ambil kata biasa).
 function extractLocation(raw) {
   let m = raw.match(/(?:lokasi(?:\s*penempatan|\s*kerja)?|location|penempatan|domisili|placement|wilayah)\s*[:\-]\s*([A-Za-z][A-Za-z .'\-]+?)(?=[\n,.(/]|$)/i);
-  if (m) return niceCase(m[1]);
+  if (m) return resolveCity(m[1]);
   m = raw.match(/(?:lokasi(?:\s*kerja)?|penempatan(?:\s*kerja)?|domisili|berlokasi di|cabang|kawasan)\s+(?:kerja\s+)?(?:di\s+)?([A-Z][A-Za-z .'\-]+?)(?=[\n,.(/]|$)/i);
-  if (m) return niceCase(m[1]);
+  if (m) return resolveCity(m[1]);
+  // fallback: scan kota di seluruh teks
+  for (const re of CITY_PATTERNS) {
+    const mm = raw.match(re);
+    if (mm) return niceCase(mm[0]);
+  }
   return "";
 }
+
 
 function parseLoker(text) {
   const out = { posisi: "", lokasi: "", perusahaan: "", deskripsi: "", kontak: "" };
