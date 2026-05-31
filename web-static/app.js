@@ -253,18 +253,6 @@ function parseLoker(text) {
 }
 
 
-// Coba AI (Netlify Function) dulu; jika gagal, pakai parser rule-based.
-async function parseWithAI(text) {
-  const res = await fetch("/.netlify/functions/parse", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-  const j = await res.json();
-  if (!j.ok || !j.fields) throw new Error(j.error || "AI gagal");
-  return j.fields;
-}
-
 function applyFields(parsed) {
   let filled = 0;
   document.querySelectorAll("input[data-field], textarea[data-field]").forEach((el) => {
@@ -275,43 +263,29 @@ function applyFields(parsed) {
   return filled;
 }
 
-async function autoFill() {
+function autoFill() {
   const text = $("#pasteText").value;
   const msg = $("#parseMsg");
-  const btn = $("#btnAutoFill");
   if (!text.trim()) {
     msg.textContent = "Tempel teks lowongan dulu di kotak atas.";
     msg.className = "note parse-warn";
     return;
   }
 
-  btn.disabled = true;
-  msg.textContent = "Memproses dengan AI...";
-  msg.className = "note";
-
-  let parsed = null;
-  let usedAI = false;
-  try {
-    parsed = await parseWithAI(text);
-    usedAI = true;
-  } catch (e) {
-    parsed = parseLoker(text); // fallback rule-based
-  }
-
+  const parsed = parseLoker(text);
   applyFields(parsed);
-  btn.disabled = false;
 
   const empty = ORDER.filter((f) => !parsed[f]);
-  const tag = usedAI ? "AI" : "mode dasar (AI tdk tersedia)";
   if (empty.length === 0) {
-    msg.textContent = `Terisi otomatis via ${tag}. Cek & rapikan bila perlu, lalu Unduh PNG.`;
+    msg.textContent = "Terisi otomatis. Cek & rapikan bila perlu, lalu Unduh PNG.";
     msg.className = "note parse-ok";
   } else {
     const labels = empty.map((f) => FIELD_LABELS[f]).join(", ");
-    msg.textContent = `Via ${tag}. Belum kebaca: ${labels} — isi/perbaiki manual ya.`;
+    msg.textContent = `Sebagian terisi. Belum kebaca: ${labels} — isi/perbaiki manual ya.`;
     msg.className = "note parse-warn";
   }
 }
+
 
 
 // ---------- events ----------
