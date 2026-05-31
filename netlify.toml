@@ -1,6 +1,11 @@
 # Konfigurasi Netlify untuk Loker Drafter (situs statis + AI parser)
 # - Situs dipublikasikan dari folder web-static
 # - Fungsi serverless (penyimpan API key OpenRouter) di netlify/functions
+# - Tidak ada build Python di Netlify (file Python hanya untuk pemakaian lokal).
 [build]
   publish = "web-static"
   functions = "netlify/functions"
+  command = ""
+
+[build.environment]
+  NODE_VERSION = "20"
