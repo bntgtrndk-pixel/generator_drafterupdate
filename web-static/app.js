@@ -13,7 +13,6 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const statusMsg = document.getElementById("statusMsg");
 
-
 let templateImg = null;
 let fontsReady = false;
 
@@ -33,7 +32,6 @@ function setFont(size, family) {
   ctx.font = `${size}px "${family}"`;
 }
 
-// Tinggi baris berdasar metrik font (mendekati ascent+descent Pillow).
 function lineHeightFor(size, family, lineSpacing) {
   setFont(size, family);
   const m = ctx.measureText("Mg");
@@ -74,7 +72,6 @@ function widestLine(lines, size, family) {
   return w;
 }
 
-// fit "fixed": ukuran tetap = maxFont, hanya mengecil bila terlalu lebar.
 function fitFixed(text, boxW, family, maxFont, minFont, lineSpacing) {
   let size = maxFont;
   while (size > minFont) {
@@ -87,7 +84,6 @@ function fitFixed(text, boxW, family, maxFont, minFont, lineSpacing) {
   return { size, lines, lineH: lineHeightFor(size, family, lineSpacing) };
 }
 
-// fit "shrink": menyusut sampai muat tinggi & lebar box.
 function fitShrink(text, boxW, boxH, family, maxFont, minFont, lineSpacing) {
   let size = maxFont;
   while (size >= minFont) {
@@ -173,7 +169,6 @@ async function loadFonts() {
     fontsReady = true;
     return true;
   } catch (e) {
-    // fallback: tetap render pakai font sistem
     fontsReady = true;
     return false;
   }
@@ -198,100 +193,113 @@ function download() {
   }, "image/png");
 }
 
-// ---------- auto-parse teks loker -> 5 field ----------
-// Parser berbasis pola (rule-based). Mendukung format Inggris & Indonesia,
-// postingan terstruktur maupun pesan singkat dari HRD.
+// =====================================================================
+// PARSER LOKER (rule-based). Fokus: ambil posisi yang mengandung "DRAFTER".
+// Mendukung format ID/EN, multi-posisi, postingan panjang maupun singkat.
+// =====================================================================
 function cleanVal(s) {
   return String(s || "")
-    .replace(/[\*_`>#]/g, "")          // buang simbol markdown
+    .replace(/[\*_`>#]/g, "")
     .replace(/\s+/g, " ")
     .replace(/^[\s:\-–—]+|[\s:\-–—.,;]+$/g, "")
     .trim();
 }
 
+// Akronim yang harus tetap KAPITAL saat merapikan teks.
+const KEEP_UPPER = new Set(["PT", "CV", "UD", "PD", "TBK", "BIM", "IKN", "PUPR", "NRC", "SLD", "BOQ", "WFH", "HRD", "3D", "2D"]);
+function niceCase(s) {
+  return cleanVal(s).split(" ").map((w) => {
+    if (!w) return w;
+    const bare = w.replace(/[.,)]/g, "");
+    if (w === w.toUpperCase() && KEEP_UPPER.has(bare.toUpperCase())) return w;
+    if (w.length > 1 && w === w.toUpperCase()) return w[0] + w.slice(1).toLowerCase();
+    return w[0].toUpperCase() + w.slice(1);
+  }).join(" ");
+}
+
+// Ambil judul posisi yang mengandung "Drafter" (paling spesifik bila ada).
+function extractDrafter(raw) {
+  let m = raw.match(/\bDrafter\s+(Bocad\s*\/\s*Tekla|Bocad|Tekla|Mekanikal|Mechanical|Arsitektur|Architecture|Sipil|Civil|Interior|Staff|Electrical|Elektrikal|Landscape|Struktur|Structural)\b/i);
+  if (m) return niceCase("Drafter " + m[1]);
+  m = raw.match(/\b(Interior|Mechanical|Mekanikal|Electrical|Elektrikal|Civil|Sipil|Junior|Senior|Architecture|Arsitektur|Structural|Landscape)\s+Drafter\b/i);
+  if (m) return niceCase(m[1] + " Drafter");
+  if (/\bDrafter\b/i.test(raw)) return "Drafter";
+  return "";
+}
+
+// Ambil nama perusahaan (PT/CV/dst, atau "perusahaan X").
+const COMP_STOP = new Set([
+  "salah", "satu", "merupakan", "adalah", "sebagai", "yang", "kontraktor", "perusahaan",
+  "kami", "sedang", "membutuhkan", "membuka", "mencari", "looking", "hiring", "currently",
+  "is", "are", "proyek", "jasa", "salah", "kini", "saat", "dengan", "untuk",
+  // kata jabatan/penanda → berhenti agar nama perusahaan tidak kebablasan
+  "drafter", "estimator", "supervisor", "engineer", "manager", "surveyor", "architect",
+  "technical", "site", "quantity", "posisi", "position", "lowongan", "kualifikasi",
+  "requirement", "tugas", "membutuhkan", "membuka",
+]);
+
+function extractCompany(raw) {
+  const re = /\b(PT|CV|UD|PD|Perum|Koperasi|Yayasan)\.?/gi;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    const after = raw.slice(m.index).replace(/\n/g, " ");
+    const tokens = after.split(/\s+/);
+    const out = [tokens[0]];
+    for (let i = 1; i < tokens.length && out.length < 6; i++) {
+      const cut = (tokens[i].match(/^[^@(),\n]*/) || [""])[0];
+      const word = cut.replace(/[.;:]+$/, "");
+      if (!word) break;
+      const lw = word.toLowerCase().replace(/[^a-z]/g, "");
+      if (lw && COMP_STOP.has(lw)) break;
+      if (/^[a-z]/.test(word) && word !== "&") break;
+      out.push(cut);
+      if (/[@(),]/.test(tokens[i])) break;
+    }
+    const name = cleanVal(out.join(" "));
+    if (name.replace(/[^A-Za-z]/g, "").length > 2) return niceCase(name);
+  }
+  const pm = raw.match(/(?:untuk\s+)?perusahaan\s+(.+?)(?=\s*@|\n|,|\.|$)/i);
+  if (pm) return niceCase(pm[1]);
+  return "";
+}
+
+// Ambil lokasi/kota (nama berkapital agar tidak salah ambil kata biasa).
+function extractLocation(raw) {
+  let m = raw.match(/(?:lokasi(?:\s*penempatan|\s*kerja)?|location|penempatan|domisili|placement|wilayah)\s*[:\-]\s*([A-Za-z][A-Za-z .'\-]+?)(?=[\n,.(/]|$)/i);
+  if (m) return niceCase(m[1]);
+  m = raw.match(/(?:lokasi(?:\s*kerja)?|penempatan(?:\s*kerja)?|domisili|berlokasi di|cabang|kawasan)\s+(?:kerja\s+)?(?:di\s+)?([A-Z][A-Za-z .'\-]+?)(?=[\n,.(/]|$)/i);
+  if (m) return niceCase(m[1]);
+  return "";
+}
+
 function parseLoker(text) {
   const out = { posisi: "", lokasi: "", perusahaan: "", deskripsi: "", kontak: "" };
   const raw = String(text).replace(/\r/g, "");
-  const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l.length);
-  const isID = /\b(dibutuhkan|lowongan|perusahaan|penempatan|lamaran|kirim|melamar|persyaratan|kualifikasi|gaji|domisili)\b/i.test(raw);
+  const isID = /\b(dibutuhkan|lowongan|perusahaan|penempatan|lamaran|kirim|melamar|persyaratan|kualifikasi|gaji|domisili|segera)\b/i.test(raw);
 
-  // ---------- KONTAK: email diutamakan, lalu nomor WA ----------
+  // KONTAK: email > nomor WA > tautan (bit.ly/shorturl/dll)
   const email = raw.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
   if (email) {
     out.kontak = email[0];
   } else {
     const wa = raw.match(/(?:\+?62|0)\s?8[0-9][0-9\s().-]{6,15}[0-9]/);
-    if (wa) out.kontak = wa[0].replace(/[\s().-]/g, "");
-  }
-
-  // ---------- LOKASI ----------
-  // 1) berlabel + titik dua/strip
-  let loc = raw.match(/(?:lokasi(?:\s*penempatan|\s*kerja)?|location|penempatan|domisili|placement|area|wilayah|kota)\s*[:\-]\s*(.+)/i);
-  // 2) inline tanpa titik dua: "penempatan/di/in Jakarta" (hanya tangkap nama kota berkapital)
-  if (!loc) loc = raw.match(/(?:penempatan|berlokasi di|lokasi di|di area|\bin)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,2})(?=[\s.,;\n]|$)/);
-  if (loc) out.lokasi = cleanVal(loc[1].split(/[\n.;|]/)[0]).split(/,(?![^()]*\))/)[0].trim();
-
-
-
-  // ---------- PERUSAHAAN ----------
-  // 1) frasa "at/join/di/bergabung dengan PT X"
-  let comp = raw.match(/\b(?:at|join|with|di|bersama|bergabung dengan)\s+((?:PT|CV|UD|PD|Perum|Koperasi|Yayasan)\.?\s+[A-Z][A-Za-z0-9&.\-' ]+?)(?=[\n,.]| untuk| sebagai| as | is | are | looking|$)/);
-  // 2) "PT X looking/membuka/as/in/untuk ..." (banyak stop-word agar tidak over-grab)
-  if (!comp) comp = raw.match(/\b((?:PT|CV|UD|PD|Perum|Koperasi|Yayasan)\.?\s+[A-Z][A-Za-z0-9&.\-' ]+?)(?=\s+(?:looking|hiring|currently|is|are|as|in|at|untuk|sebagai|membuka|mencari|sedang|membutuhkan|opening|invites?|seeking|adalah|kini|saat ini)\b|[\n,.])/);
-
-  if (comp) {
-    out.perusahaan = cleanVal(comp[1]);
-  } else {
-    // 3) baris yang diawali PT/CV/dst
-    const cl = lines.find((l) => /^(PT|CV|UD|PD|Perum|Koperasi|Yayasan)\b/i.test(l));
-    if (cl) out.perusahaan = cleanVal(cl.split(/\s+(?:looking|is|are|membuka|mencari|membutuhkan|currently|sedang)\b/i)[0]);
-    // 4) label "Perusahaan/Company : X"
-    if (!out.perusahaan) {
-      const cm = raw.match(/(?:perusahaan|company|nama perusahaan)\s*[:\-]\s*(.+)/i);
-      if (cm) out.perusahaan = cleanVal(cm[1].split(/[\n.;|]/)[0]);
+    if (wa) {
+      out.kontak = wa[0].replace(/[\s().-]/g, "");
+    } else {
+      const link = raw.match(/((?:https?:\/\/)?(?:bit\.ly|shorturl\.at|tinyurl\.com|linktr\.ee|s\.id)\/[^\s]+)/i);
+      if (link) out.kontak = link[1];
     }
   }
 
-  // ---------- POSISI ----------
-  // 1) label tegas: "Posisi/Position/Jabatan/Role : X"
-  let pos = raw.match(/(?:posisi|position|jabatan|role|lowongan(?:\s*untuk)?|dibutuhkan(?:\s*segera)?)\s*[:\-]\s*(.+)/i);
-  if (pos) out.posisi = cleanVal(pos[1].split(/[\n.,;|(]/)[0]);
-  // 2) dari dalam kurung siku [ ... - POSISI ] atau [ POSISI ]
-  if (!out.posisi) {
-    const br = raw.match(/\[([^\]]+)\]/);
-    if (br) {
-      let t = br[1];
-      if (t.includes("-")) t = t.split("-").pop();
-      if (t.includes(":")) t = t.split(":").pop();
-      out.posisi = cleanVal(t);
-    }
-  }
-  // 3) "looking/seeking/hiring for X (to join)"
-  if (!out.posisi) {
-    const lf = raw.match(/(?:looking|seeking|hiring|searching)\s+for\s+(?:an?\s+)?(?:experienced\s+|several\s+|talented\s+)?(.+?)(?:\s+to join|\s+who|\.|,|\n)/i);
-    if (lf) out.posisi = cleanVal(lf[1]);
-  }
-  // 4) "mencari/membutuhkan/dibutuhkan (segera/seorang) X untuk/yang"
-  if (!out.posisi) {
-    const mc = raw.match(/(?:mencari|membutuhkan|dibutuhkan|cari)\s+(?:segera\s+)?(?:seorang\s+|tenaga\s+|beberapa\s+)?(.+?)(?:\s+untuk|\s+yang|\s+di\b|\.|,|\n)/i);
-    if (mc) out.posisi = cleanVal(mc[1]);
-  }
+  out.posisi = extractDrafter(raw);
+  out.perusahaan = extractCompany(raw);
+  out.lokasi = extractLocation(raw);
 
-  // 5) "as a/an X"
-  if (!out.posisi) {
-    const asm = raw.match(/\bas\s+(?:an?\s+)?([A-Z][A-Za-z\/ ]+?)(?:\s+to|\s+at|\s+in|\.|,|\n)/);
-    if (asm) out.posisi = cleanVal(asm[1]);
-  }
-  // bersihkan kata pembuka umum
-  out.posisi = cleanVal(out.posisi.replace(/^(job\s*vacancy|vacancy|loker|lowongan(?:\s*kerja)?|urgently needed|urgent|we are hiring|hiring)\s*[-:]?\s*/i, ""));
-
-  // ---------- DESKRIPSI (teks ajakan singkat, bukan requirement) ----------
+  // DESKRIPSI = teks ajakan singkat (detail dibaca di caption IG)
   out.deskripsi = isID ? "Kirim CV ke:" : "Send your CV to:";
 
   return out;
 }
-
-
 
 function applyFields(parsed) {
   let filled = 0;
@@ -311,7 +319,6 @@ function autoFill() {
     msg.className = "note parse-warn";
     return;
   }
-
   const parsed = parseLoker(text);
   applyFields(parsed);
 
@@ -326,13 +333,10 @@ function autoFill() {
   }
 }
 
-
-
 // ---------- events ----------
 function bind() {
   const auto = document.getElementById("btnAutoFill");
   if (auto) auto.addEventListener("click", autoFill);
-
 
   document.querySelectorAll("[data-field]").forEach((el) => {
     el.addEventListener("input", () => {
